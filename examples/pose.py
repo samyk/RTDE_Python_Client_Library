@@ -258,31 +258,47 @@ def parse_pose_string(pose_str):
 def validate_motion_params(acc, vel, use_joints=False):
     """Validate and warn about motion parameters"""
     warnings = []
-    
+
     if use_joints:
         # movej: acceleration in rad/s², velocity in rad/s
         if acc > 14.0:
-            warnings.append(f"Warning: Acceleration {acc} rad/s² exceeds typical max (~14 rad/s² for movej)")
+            warnings.append(
+                f"Warning: Acceleration {acc} rad/s² exceeds typical max (~14 rad/s² for movej)"
+            )
         if vel > 3.14:
-            warnings.append(f"Warning: Velocity {vel} rad/s exceeds typical max (~3.14 rad/s = 180°/s for movej)")
+            warnings.append(
+                f"Warning: Velocity {vel} rad/s exceeds typical max (~3.14 rad/s = 180°/s for movej)"
+            )
         if acc < 0.1:
-            warnings.append(f"Warning: Very low acceleration {acc} rad/s² may result in very slow motion")
+            warnings.append(
+                f"Warning: Very low acceleration {acc} rad/s² may result in very slow motion"
+            )
         if vel < 0.1:
-            warnings.append(f"Warning: Very low velocity {vel} rad/s may result in very slow motion")
+            warnings.append(
+                f"Warning: Very low velocity {vel} rad/s may result in very slow motion"
+            )
     else:
         # movel: acceleration in m/s², velocity in m/s
         if acc > 2.5:
-            warnings.append(f"Warning: Acceleration {acc} m/s² exceeds typical max (~2.5 m/s² for movel)")
+            warnings.append(
+                f"Warning: Acceleration {acc} m/s² exceeds typical max (~2.5 m/s² for movel)"
+            )
         if vel > 1.0:
-            warnings.append(f"Warning: Velocity {vel} m/s exceeds typical max (~1.0 m/s for movel)")
+            warnings.append(
+                f"Warning: Velocity {vel} m/s exceeds typical max (~1.0 m/s for movel)"
+            )
         if acc < 0.1:
-            warnings.append(f"Warning: Very low acceleration {acc} m/s² may result in very slow motion")
+            warnings.append(
+                f"Warning: Very low acceleration {acc} m/s² may result in very slow motion"
+            )
         if vel < 0.01:
-            warnings.append(f"Warning: Very low velocity {vel} m/s may result in very slow motion")
-    
+            warnings.append(
+                f"Warning: Very low velocity {vel} m/s may result in very slow motion"
+            )
+
     for warning in warnings:
         print(warning)
-    
+
     return len(warnings) == 0
 
 
@@ -512,13 +528,13 @@ def main():
     )
 
     args = parser.parse_args()
-    
+
     # Show limits explanation if requested
     if args.explain_limits:
         explain_motion_limits()
         if not (args.get or args.set or args.list):
             return  # Just show explanation and exit
-    
+
     # Handle list action (doesn't need robot connection)
     if args.list:
         list_poses(args.file, args.explain)
