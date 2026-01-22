@@ -192,6 +192,26 @@ def format_joints(joints, show_degrees=True):
     return joint_str
 
 
+def explain_motion_limits():
+    """Print explanation of motion parameter limits"""
+    print("\n" + "=" * 80)
+    print("MOTION PARAMETER LIMITS")
+    print("=" * 80)
+    print("For movel (Cartesian/TCP motion):")
+    print("  - Velocity (v): in m/s, typical max ~1.0 m/s")
+    print("  - Acceleration (a): in m/s², typical max ~2.5 m/s²")
+    print("\nFor movej (Joint space motion):")
+    print("  - Velocity (v): in rad/s, typical max ~3.14 rad/s (180°/s)")
+    print("  - Acceleration (a): in rad/s², typical max ~14 rad/s² (800°/s²)")
+    print("\nNote: Actual limits depend on:")
+    print("  - Robot model (UR3, UR5, UR10, UR16, etc.)")
+    print("  - Payload mass and center of gravity")
+    print("  - Joint configuration and current pose")
+    print("  - Safety settings and motion version")
+    print("  - The controller may scale down values that exceed safe limits")
+    print("=" * 80 + "\n")
+
+
 def explain_joint_positions():
     """Print explanation of joint positions"""
     print("\n" + "=" * 80)
@@ -233,6 +253,37 @@ def parse_pose_string(pose_str):
         return values
     except ValueError as e:
         raise ValueError(f"Invalid pose format: {e}")
+
+
+def validate_motion_params(acc, vel, use_joints=False):
+    """Validate and warn about motion parameters"""
+    warnings = []
+    
+    if use_joints:
+        # movej: acceleration in rad/s², velocity in rad/s
+        if acc > 14.0:
+            warnings.append(f"Warning: Acceleration {acc} rad/s² exceeds typical max (~14 rad/s² for movej)")
+        if vel > 3.14:
+            warnings.append(f"Warning: Velocity {vel} rad/s exceeds typical max (~3.14 rad/s = 180°/s for movej)")
+        if acc < 0.1:
+            warnings.append(f"Warning: Very low acceleration {acc} rad/s² may result in very slow motion")
+        if vel < 0.1:
+            warnings.append(f"Warning: Very low velocity {vel} rad/s may result in very slow motion")
+    else:
+        # movel: acceleration in m/s², velocity in m/s
+        if acc > 2.5:
+            warnings.append(f"Warning: Acceleration {acc} m/s² exceeds typical max (~2.5 m/s² for movel)")
+        if vel > 1.0:
+            warnings.append(f"Warning: Velocity {vel} m/s exceeds typical max (~1.0 m/s for movel)")
+        if acc < 0.1:
+            warnings.append(f"Warning: Very low acceleration {acc} m/s² may result in very slow motion")
+        if vel < 0.01:
+            warnings.append(f"Warning: Very low velocity {vel} m/s may result in very slow motion")
+    
+    for warning in warnings:
+        print(warning)
+    
+    return len(warnings) == 0
 
 
 def get_pose(robot, filename, pose_name="current", force=False, explain=False):
@@ -296,6 +347,7 @@ def set_pose(
         # Parse pose from command line string
         pose = parse_pose_string(pose_str)
         print(f"Moving to pose from command line: {format_pose(pose)}")
+        validate_motion_params(acc, vel, use_joints=False)
         robot.movel(pose, acc=acc, vel=vel)
         print("Move completed")
         return True
@@ -322,6 +374,7 @@ def set_pose(
             print(
                 f"Moving to joint positions for '{pose_name}': {format_joints(pose_data['joints'])}"
             )
+            validate_motion_params(acc, vel, use_joints=True)
             robot.movej(pose_data["joints"], acc=acc, vel=vel)
             print("Move completed")
             return True
@@ -331,6 +384,7 @@ def set_pose(
                 print(
                     f"  (Note: Joint data also available, but using pose. Use --joints to use joint positions instead)"
                 )
+            validate_motion_params(acc, vel, use_joints=False)
             robot.movel(pose_data["pose"], acc=acc, vel=vel)
             print("Move completed")
             return True
@@ -339,6 +393,7 @@ def set_pose(
             print(
                 f"Moving to joint positions for '{pose_name}': {format_joints(pose_data['joints'])}"
             )
+            validate_motion_params(acc, vel, use_joints=True)
             robot.movej(pose_data["joints"], acc=acc, vel=vel)
             print("Move completed")
             return True
@@ -413,10 +468,18 @@ def main():
 
     # Movement parameters
     parser.add_argument(
-        "-a", "--acc", type=float, default=0.3, help="Acceleration (default: 0.3)"
+        "-a",
+        "--acc",
+        type=float,
+        default=0.3,
+        help="Acceleration: movel in m/s² (max ~2.5), movej in rad/s² (max ~14) (default: 0.3)",
     )
     parser.add_argument(
-        "-v", "--vel", type=float, default=0.05, help="Velocity (default: 0.05)"
+        "-v",
+        "--vel",
+        type=float,
+        default=0.05,
+        help="Velocity: movel in m/s (max ~1.0), movej in rad/s (max ~3.14) (default: 0.05)",
     )
 
     # Force overwrite
@@ -434,6 +497,11 @@ def main():
         action="store_true",
         help="Show explanation of joint positions and poses",
     )
+    parser.add_argument(
+        "--explain-limits",
+        action="store_true",
+        help="Show explanation of motion parameter limits",
+    )
 
     # Prefer joints over pose
     parser.add_argument(
@@ -444,7 +512,13 @@ def main():
     )
 
     args = parser.parse_args()
-
+    
+    # Show limits explanation if requested
+    if args.explain_limits:
+        explain_motion_limits()
+        if not (args.get or args.set or args.list):
+            return  # Just show explanation and exit
+    
     # Handle list action (doesn't need robot connection)
     if args.list:
         list_poses(args.file, args.explain)
